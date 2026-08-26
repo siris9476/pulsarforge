@@ -1,0 +1,7 @@
+Il faro di Punta Grecale era rimasto spento per tre inverni, e nessuno in paese ricordava piu' il nome dell'ultimo guardiano. Quando Elena sali' la scala a chiocciola, trovo' sul tavolo un quaderno aperto, la pagina ferma su una data di quarant'anni prima. La calligrafia era minuta, ordinata, e parlava di una nave che nessun registro portuale aveva mai censito.
+
+Modern operating systems manage memory through paging: virtual addresses are translated to physical frames by the MMU, and pages not recently used can be evicted to disk. When a process touches an evicted page, the hardware raises a page fault, the kernel loads the data back, and execution resumes transparently. This mechanism lets programs use more memory than physically available, at the cost of unpredictable latency spikes.
+
+"Allora, hai controllato i log del server?" chiese Marta senza alzare gli occhi dallo schermo. "Si', tre errori di timeout stanotte, tutti verso le quattro," rispose Luca. "Strano. Il backup parte alle quattro. Coincidenza?" "Non credo alle coincidenze quando c'e' un disco di mezzo." Marta sorrise e apri' il grafico delle latenze: un picco netto, puntuale come un treno svizzero.
+
+La ricetta del pane richiede pazienza piu' che tecnica: farina, acqua, sale e un lievito madre rinfrescato con costanza.

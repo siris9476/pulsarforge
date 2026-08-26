@@ -1,0 +1,2 @@
+[gMASK]<sop><|user|>
+Scrivi una sola frase poetica su un faro in mezzo al mare.<|assistant|><think></think>

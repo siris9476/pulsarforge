@@ -1,0 +1,1 @@
+<|user|>Quanto fa 17 piu 25? Rispondi in poche parole.<|assistant|><think></think>

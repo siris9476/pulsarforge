@@ -1,0 +1,1 @@
+The history of artificial intelligence began with early attempts to build machines that could reason, learn, and solve problems the way humans do. Researchers in the mid twentieth century imagined a future where computers would understand language, recognize patterns, and make decisions autonomously across many different domains of human activity.

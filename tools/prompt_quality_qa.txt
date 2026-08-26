@@ -1,0 +1,16 @@
+Rispondi a ogni domanda con poche parole, senza spiegazioni.
+
+D: Qual e' la capitale della Francia?
+R: Parigi
+
+D: Quanto fa 17 + 25?
+R: 42
+
+D: Chi ha scritto la Divina Commedia?
+R: Dante Alighieri
+
+D: Qual e' il pianeta piu' grande del sistema solare?
+R: Giove
+
+D: In che anno e' caduto il muro di Berlino?
+R:

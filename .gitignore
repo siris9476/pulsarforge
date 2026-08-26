@@ -1,0 +1,39 @@
+nf
+*.exe
+*.obj
+*.pdb
+*.ilk
+*.gguf
+*.log
+models/
+venv-tools/
+tests/golden/
+tests/*.npy
+tests/*.f32
+tests/bench_prompt.txt
+__pycache__/
+*.pyc
+libomp.dll
+*.expw
+*.lmdisk
+sessions/
+scratch_convert*/
+*.warm
+validate_native_results.txt
+gate_posix.sh
+zstd/zstd_dec.lib
+colibri_confronto/
+llamacpp-bench/
+tests/ppl_corpus.txt
+tools/prompt_long_dsa.txt
+
+# .forge/.forgez/.forgezh containers and sidecars produced at repo root
+# by the documented conversion pipeline (forge_convert.py/forge_zip.py/
+# forge_rez.exe) can reach hundreds of GB. Root-anchored so the small,
+# intentionally-tracked fixtures under tools/ are unaffected.
+/*.forge
+/*.forgez
+/*.forgezh
+/*.forge.*
+/*.forgez.*
+/*.forgezh.*

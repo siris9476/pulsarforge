@@ -49,6 +49,7 @@ the HuggingFace reference. It grew into something rarer:
 | Batch mode (8 correlated streams, layer-major sweep) | **~2.9 s/token aggregate (68×)** |
 | Qwen3-30B-A3B MoE chat | ~6.8 tok/s from the first token |
 | Qwen3-4B | ~2.6 tok/s — the machine's sweet spot |
+| Qwen3-0.6B (the didactic starting point) | ~13 tok/s Q6_K, ~15 tok/s Q4_K_M (`--no-think` only) |
 
 The remaining walls are named and measured, not guessed: the USB chain
 tops out at 580–590MB/s real (Gen2 confirmed by probing cold regions),

@@ -8631,8 +8631,21 @@ static void matvec_multi(const nf_tensor *w, const float *const *xs,
 #define NF_BATCH_WORK_MIN (8u << 20)
 static int g_batch_threads = -1;
 static int batch_num_threads(void) {
-    if (g_batch_threads < 0)
-        g_batch_threads = getenv("OMP_NUM_THREADS") ? 0 : omp_get_num_procs();
+    if (g_batch_threads < 0) {
+        /* NF_BATCH_THREADS is nf's own knob (set by main when it pins
+         * the process to physical cores): the batched prefill path must
+         * use the SAME count as every other parallel region. Left to
+         * omp_get_num_procs() it would ask for ALL logical CPUs while
+         * the rest of the engine runs on physical cores — mixing a
+         * 16-thread batch region with 8-thread regions makes libgomp
+         * resize its pool on every region: measured 252 vs 911 tok/s
+         * prefill (Qwen3-0.6B, 8C/16T Zen 5, gcc 15.2). */
+        const char *nb = getenv("NF_BATCH_THREADS");
+        if (nb && *nb) g_batch_threads = atoi(nb);
+        else g_batch_threads = getenv("OMP_NUM_THREADS") ? 0
+                                                        : omp_get_num_procs();
+        if (g_batch_threads < 0) g_batch_threads = 0;
+    }
     return g_batch_threads > 0 ? g_batch_threads : omp_get_max_threads();
 }
 #endif

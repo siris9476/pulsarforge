@@ -5583,8 +5583,13 @@ static void job_dispose(nf_srv_job *jb, int started) {
  * cost is just a few stack arrays. */
 #define NF_SRV_ROWS (NF_SRV_SLOTS + NF_PREFILL_CHUNK)
 
+/* Defined next to physical_cores(), just before main(): threads that run
+ * parallel regions re-apply the thread count chosen there. */
+static void nf_omp_threads_apply(void);
+
 static NF_THREAD_RET compute_thread_fn(void *arg) {
     nf_server *sv = (nf_server *)arg;
+    nf_omp_threads_apply();   /* this thread has its OWN data environment */
     const nf_model_kind mk = nf_model_kind_of(sv->m);
     nf_srv_job *active[NF_SRV_SLOTS];
     int n_active = 0;
@@ -6157,7 +6162,13 @@ static void apply_longmem_cli_args(int argc, char **argv) {
  * kernels hyperthreading adds contention, not bandwidth — measured:
  * 4 threads beat the default 8 by +6% on
  * dense decode and never lose on the 30B MoE. 0 = undeterminable (the
- * OpenMP default is left alone). */
+ * OpenMP default is left alone).
+ *
+ * POSIX NOTE: the Linux branch was added later — before it, this
+ * function returned 0 on Linux, so omp_set_num_threads() was never
+ * called and libgomp defaulted to EVERY logical CPU. On an 8C/16T
+ * machine that cost 32-59% of decode throughput (0.6B 80.0 -> 54.4,
+ * 4B 19.5 -> 8.0, 8B 10.7 -> 5.0, 30B MoE 24.5 -> 11.6 tok/s). */
 #ifdef _WIN32
 static int physical_cores(void) {
     DWORD len = 0;
@@ -6180,7 +6191,66 @@ static int physical_cores(void) {
     return n;
 }
 #else
-static int physical_cores(void) { return 0; }
+/* Linux: /proc/cpuinfo carries (physical id, core id) per logical CPU;
+ * counting the distinct pairs yields PHYSICAL cores, so an SMT machine
+ * does not get one OpenMP thread per logical CPU (measured: 24.5 vs
+ * 11.6 tok/s decode on a 8C/16T Ryzen with the 30B MoE). If the
+ * topology is unreadable (no /proc, ARM cpuinfo without core id) the
+ * number of ONLINE cpus is a safe last resort: single-CPU-per-core and
+ * one-logical-per-physical both make it correct, and it only
+ * overshoots on SMT machines whose /proc is unreadable. */
+static int physical_cores(void) {
+    int pids[512], cids[512];
+    int i, n = 0, phys = -1, core = -1;
+    char line[256];
+    FILE *f = fopen("/proc/cpuinfo", "r");
+    if (f) {
+        while (fgets(line, sizeof line, f)) {
+            if (strncmp(line, "physical id", 11) == 0) {
+                const char *c = strchr(line, ':');
+                if (c) phys = atoi(c + 1);
+            } else if (strncmp(line, "core id", 7) == 0) {
+                const char *c = strchr(line, ':');
+                if (c) core = atoi(c + 1);
+            } else if (line[0] == '\n') {   /* end of a processor block */
+                if (phys >= 0 && core >= 0) {
+                    int dup = 0;
+                    for (i = 0; i < n; i++)
+                        if (pids[i] == phys && cids[i] == core) { dup = 1; break; }
+                    if (!dup && n < 512) { pids[n] = phys; cids[n] = core; n++; }
+                }
+                phys = core = -1;
+            }
+        }
+        fclose(f);
+    }
+    if (n <= 0) {
+        const long c = sysconf(_SC_NPROCESSORS_ONLN);
+        n = c > 0 ? (int)c : 0;
+    }
+    return n;
+}
+#endif
+
+#ifdef _OPENMP
+/* Thread count chosen by main (0 = leave the runtime alone).
+ *
+ * Why this exists: omp_set_num_threads() only sets the CALLING thread's
+ * data environment. A thread created later (the persistent compute
+ * thread of `nf serve`, conn_thread_fn/compute_thread_fn) starts from
+ * libgomp's GLOBAL ICV — the environment value, or ALL logical CPUs
+ * when OMP_NUM_THREADS is unset — so the physical-core pinning above
+ * silently evaporates the moment the work moves off the main thread.
+ * Measured on an 8C/16T Zen 5, Qwen3-4B, `nf serve` N=1: 7.7 tok/s
+ * with the auto-config vs 18.8 with OMP_NUM_THREADS=8 (and 18.8 again
+ * once this is applied). Setting the environment from main does NOT
+ * work: libgomp reads it at library init, before main. */
+static int g_omp_threads = 0;
+static void nf_omp_threads_apply(void) {
+    if (g_omp_threads > 0) omp_set_num_threads(g_omp_threads);
+}
+#else
+static void nf_omp_threads_apply(void) {}
 #endif
 
 int main(int argc, char **argv) {
@@ -6230,7 +6300,24 @@ int main(int argc, char **argv) {
      * the user, wins (omp_set_num_threads doesn't get called). */
     if (!getenv("OMP_NUM_THREADS")) {
         const int pc = physical_cores();
-        if (pc > 0) omp_set_num_threads(pc);
+        if (pc > 0) {
+            omp_set_num_threads(pc);
+            g_omp_threads = pc;
+#ifdef __linux__
+            /* On Linux the batched prefill path would otherwise still
+             * ask omp_get_num_procs() for ALL logical CPUs (see
+             * batch_num_threads in nf_model.c): physical-core regions
+             * interleaved with a logical-CPU-width batch region cost
+             * 3.6x on prefill (252 vs 911 tok/s, 0.6B). Pin the batch
+             * path to the same count. NF_BATCH_THREADS wins if the
+             * user already chose one. */
+            if (!getenv("NF_BATCH_THREADS")) {
+                char b[32];
+                snprintf(b, sizeof b, "NF_BATCH_THREADS=%d", pc);
+                nf_setenv(b);
+            }
+#endif
+        }
     }
 #endif
     /* K/V cache: the default is per-head int8 (kv-q8) — see
